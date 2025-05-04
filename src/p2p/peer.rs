@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4};
 use tokio::net::UdpSocket;
 use uuid::Uuid;
+use std::io;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPeer {
@@ -34,19 +35,29 @@ impl LocalPeer {
         socket.join_multicast_v4(MULTICASE_ADD, Ipv4Addr::UNSPECIFIED).unwrap();
         let mut message = PeerMessage::Connecting;
         let mut buffer = [0u8; 256];
+        
+        // let recieverr = tokio::spawn(async move {
+        //     let mut bufferr = [0u8; 256];
+
+        //     sta
+        // })
+        
         while let PeerMessage::Connecting = message {
-            println!("Trying to connect...");
+            // println!("Trying to connect...");
             socket.send_to(
                 serde_json::to_string(&peer).unwrap().as_bytes(),
                 multicase_socket,
             ).await.unwrap();
-            println!("Sending to multicast socket...");
+            // println!("Sending to multicast socket...");
             match socket.try_recv_from(&mut buffer) {
                 Ok((size, result)) => {
                     message =  PeerMessage::Connected;
                 },
-                Err(_) => {
-                    println!("error")
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    continue;
+                },
+                Err(err) => {
+                    println!("Error: {}", err);
                 } 
             }
         }
